@@ -2,10 +2,9 @@
 title: "STAT462 Assignment 2"
 author: 
   - "David Ewing (82171165)"
-  - "Xia Yu (62380486)"
+  - "Xia Yu       (62380486)"
 date: "`r Sys.Date()`"
-
-output:
+output: 
   pdf_document:
     latex_engine: xelatex
     fig_caption: true
@@ -15,23 +14,18 @@ output:
     fig_crop: false
     includes:
       in_header: ../doc/fonts.tex
-
-mainfont: Arial          # <-- THIS is inside the YAML, but not under pdf_document
-fontsize: 11pt           # <-- Same here
-geometry: margin=1in     # <-- And here
+geometry: margin=1in
+mainfont: Arial
+fontsize: 10pt
 ---
 
-
-```{r setup, include=FALSE}
+```{r setup-c, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
-```
 
-```{r packages, include=FALSE}
 required_packages <- c(
-  "caret", "class", "cowplot", "dplyr", "flextable", "GGally", "ggplot2", 
-  "glmnet", "glue", "kableExtra", "kknn", "knitr", "MASS", "officer", 
-  "patchwork", "pROC", "rsample", "skimr", "tibble", "tidyverse", "tree", 
-  "yardstick"
+  "caret", "class", "cowplot", "dplyr", "flextable", "GGally", "ggplot2",
+  "glmnet", "glue", "kableExtra", "kknn", "knitr", "MASS", "officer",
+  "patchwork", "pROC", "rsample", "skimr", "tibble", "tidyverse", "tree", "yardstick"
 )
 
 for (pkg in required_packages) {
@@ -45,6 +39,16 @@ if ("dplyr" %in% loadedNamespaces()) {
   try(conflict_prefer("select", "dplyr"), silent = TRUE)
 }
 ```
+
+
+```{r pretty-functions, include=FALSE}
+# Define pretty_df and any other pretty_* helpers
+pretty_df <- function(df, title = NULL) {
+  knitr::kable(df, caption = title, format = "html") %>%
+    kableExtra::kable_styling(full_width = FALSE, position = "center")
+}
+```
+
 
 ```{r deebug, include=FALSE}
 # ---- All pretty_* helpers from A & B ----
@@ -154,24 +158,134 @@ pretty_ggplot <- \(plot, title = "ggplot Summary") {
   ft <- pretty_df(df)
   return(ft)
 }
+
+
+
+pretty_split_df <- function(df,
+                            cols = 6,
+                            title = NULL,
+                            fontsize = 10,
+                            n = 5) {
+  if (!is.data.frame(df)) {
+    stop(cat("\\textit{Object is not a data frame:}", deparse(df)))
+  }
+
+  title <- if (is.null(title)) deparse(substitute(df)) else title
+  df_show <- if (n > 0) head(df, n) else if (n < 0) tail(df, abs(n)) else df
+  col_groups <- split(names(df_show), ceiling(seq_along(df_show) / cols))
+
+  # Return a named list of flextables created by pretty_df
+  ft_list <- lapply(seq_along(col_groups), function(i) {
+    subdf <- df_show[, col_groups[[i]], drop = FALSE]
+    pretty_df(
+      subdf,
+      title = paste0(title, " (", i, ")"),
+      fontsize = fontsize,
+      n = n
+    )
+  })
+
+  names(ft_list) <- paste0(
+    title,
+    " (",
+    seq_along(ft_list),
+    ")"
+  )
+
+  return(ft_list)
+}
+
+
+
 ```
 
-# 1. Introduction
+
+```{r load-and-test-split, results='hide'}
+# Load heart and colour datasets from zip
+
+# Set base directory
+# Assign named paths based on filename match
+# load the dataframes via pretty_read_csv 
+# preview structure
+unzip_dir <- "../data/unzipped"
+zip_path  <- "../data/data_assignment_2.zip"
+csv_files <- unzip(zip_path, list = TRUE)$Name  # Extract filenames from the zip
+target_paths <- file.path(unzip_dir, csv_files)
+
+idx_color   <- grep("color", csv_files)
+idx_heart   <- grep("heart", csv_files)
+path_colour <- target_paths[idx_color]
+path_heart  <- target_paths[idx_heart]
+ 
+heart_list  <- pretty_read_csv(path_heart, col_names = TRUE)
+colour_list <- pretty_read_csv(path_colour, col_names = TRUE)
+   
+heart_df = heart_list$df
+heart_ft = heart_list$ft 
+                                                         
+colour_df = colour_list$df
+colour_ft = colour_list$ft 
+
+
+foo <- pretty_split_df(heart_df)
+
+render_flextables <- function(ft_list) {
+  for (ft in foo) {
+    invisible(print(knitr::knit_print(ft)))
+    }
+  }
+
+render_flextables(foo)
+```
+```{r}
+source("../doc/A-development.Rmd")
+```
+
+
+```{r child="../doc/WSB-heart-analysis-v10.Rmd" , cache = FALSE}
+```
+
+```
+            
+
+```{r}
+source("./doc/B-development.R")
+```
+
+```{r child="../doc/WSB-colour-analysis-v6.Rmd", cache = FALSE}
+# Abstract
+
+```{r abstract, include=FALSE}
+# To be written last — brief overview of the study
+```
+
+
+c_train <- 1
+## Introduction
 
 This report presents a comprehensive statistical modeling analysis conducted for Assignment 2 of STAT462. The objective is to develop and evaluate predictive models for a multi-class classification problem using color data. The response variable of interest is `colour`, which consists of five categories: red, blue, pink, purple, and brown. The predictor variables are RGB color values (`r` and `b`), extracted from images.
 
 Two modeling approaches are explored and compared:
 
-1. **Quadratic Discriminant Analysis (QDA)** – a generative classification model that fits a separate multivariate normal distribution for each class and allows each class to have its own covariance matrix.
-2. **k-Nearest Neighbors (k-NN)** – a non-parametric method that classifies a point based on the majority class among its k nearest neighbors in the feature space.
+1. **Quadratic Discriminant Analysis (QDA)** — a generative classification model that fits a separate multivariate normal distribution for each class and allows each class to have its own covariance matrix.
+
+2. **k-Nearest Neighbors (k-NN)** — a non-parametric method that classifies a point based on the majority class among its k nearest neighbors in the feature space.
 
 Throughout the report, these models are evaluated based on their classification accuracy, decision boundaries, and ROC curves (using one-vs-rest strategy) to assess their ability to distinguish each class from the others.
 
 The analysis proceeds by first introducing the dataset, followed by model development, performance evaluation, and interpretation of results.
 
+
 # 2. Data
 
-```{r data-class-distribution, include=TRUE}
+The dataset used in this analysis contains RGB color values (`r`, `g`, `b`) extracted from image samples, with an associated color label stored in the `colour` variable. The objective is to classify these color labels based on the numeric RGB values.
+
+After loading, the dataset was split into training and testing sets. The training set is used to build the models, while the testing set is used for performance evaluation.
+```{r}
+
+```
+
+```{r data-class-distribution, echo=FALSE, message=FALSE, warning=FALSE}
 # Generate class summary from the training data
 c_class_summary <- c_train %>%
   count(colour, name = "Count") %>%
@@ -179,4 +293,53 @@ c_class_summary <- c_train %>%
 
 # Display formatted table
 pretty_df(c_class_summary, title = "Class Distribution in Training Set")
+```
+
+This table (Figure \@ref(fig:class-distribution)) shows the number and proportion of observations for each color class in the training set.
+le above shows how many samples belong to each color class and what proportion they represent in the training data. This helps assess class balance and potential modeling challenges.
+
+
+# Describe the dataset, variables, and preparation
+```
+
+# 3. Methodology
+
+```{r methodology}
+# Describe QDA and k-NN, tuning, training approach
+```
+
+# 4. Model Evaluation
+
+```{r evaluation}
+# Accuracy, ROC curves, confusion matrices
+```
+
+# 5. Model Comparison
+
+```{r comparison}
+# Compare QDA vs kNN using metrics and visuals
+```
+
+# 6. Discussion
+
+```{r discussion}
+# Interpret the findings, implications
+```
+
+# 7. Conclusion
+
+```{r conclusion}
+# Summarize the report, restate findings, recommendations
+```
+
+# References
+
+```{r references, include=FALSE}
+# BibTeX or manual citation list
+```
+
+# Appendix
+
+```{r appendix}
+# Additional plots or tables
 ```

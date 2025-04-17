@@ -171,8 +171,9 @@ The analysis proceeds by first introducing the dataset, followed by model develo
 
 # 2. Data
 
-```{r data-class-distribution, include=TRUE}
+```{r data-class-distribution-B, include=TRUE}
 # Generate class summary from the training data
+print(c_train)
 c_class_summary <- c_train %>%
   count(colour, name = "Count") %>%
   mutate(Proportion = round(Count / sum(Count), 3))
